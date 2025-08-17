@@ -1,5 +1,11 @@
 #include <RadioLib.h>
 #include <SPI.h>
+#include <WiFi.h>
+#include <WiFiClient.h>
+
+//-------- Configurações de Wi-fi -----------
+const char* ssid = "********";           // Nome
+const char* password = "********";      // Senha
 
 // Definição dos pinos SPI e LoRa
 #define LORA_CLK SCK   // Pino de clock SPI
@@ -31,6 +37,18 @@ void setFlag(void)
 void setup()
 {
   Serial.begin(115200);
+
+  //:::::: WIFI :::::://
+
+  Serial.begin(115200);
+  WiFi.begin(ssid, password);
+
+  while (WiFi.status() != WL_CONNECTED)
+  {
+    delay(500);
+    Serial.println("Connecting to WiFi..");
+  }
+  Serial.println("Connected to the WiFi network");
 
   // Inicializa SPI
   SPI.begin(LORA_CLK, LORA_MISO, LORA_MOSI, LORA_NSS);

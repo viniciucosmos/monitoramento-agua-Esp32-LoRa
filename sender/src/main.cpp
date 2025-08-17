@@ -57,6 +57,7 @@ float b = 34.08237;
 void setup()
 {
   analogReadResolution(12); // Define resolução de 12 bits (padrão)
+  
   //:::::: LORA - INICIO :::::://
 
   Serial.begin(115200);
