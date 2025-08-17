@@ -1,0 +1,12 @@
+{
+	"folders": [
+		{
+			"path": "../../../../Projetos/PlatformIO/Projects/sistema-monitoramento-agua-V2"
+		},
+		{
+			"name": "sistema-monitoramento-agua-V3",
+			"path": ".."
+		}
+	],
+	"settings": {}
+}
