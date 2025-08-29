@@ -2,10 +2,14 @@
 #include <SPI.h>
 #include <WiFi.h>
 #include <WiFiClient.h>
+#include <HTTPClient.h>
 
 //-------- Configurações de Wi-fi -----------
-const char* ssid = "********";           // Nome
-const char* password = "********";      // Senha
+const char *ssid = "x";           // Nome
+const char *password = "x"; // Senha
+
+// URL da API
+const char *serverUrl = "url";
 
 // Definição dos pinos SPI e LoRa
 #define LORA_CLK SCK   // Pino de clock SPI
@@ -43,12 +47,19 @@ void setup()
   Serial.begin(115200);
   WiFi.begin(ssid, password);
 
+  Serial.println("Conectando ao WiFi...");
+  WiFi.begin(ssid, password);
+
+  // Espera até conectar
   while (WiFi.status() != WL_CONNECTED)
   {
     delay(500);
-    Serial.println("Connecting to WiFi..");
+    Serial.print(".");
   }
-  Serial.println("Connected to the WiFi network");
+
+  Serial.println("\nWiFi conectado!");
+  Serial.print("Endereço IP: ");
+  Serial.println(WiFi.localIP()); // Mostra IP na rede
 
   // Inicializa SPI
   SPI.begin(LORA_CLK, LORA_MISO, LORA_MOSI, LORA_NSS);
@@ -88,8 +99,7 @@ void setup()
   {
     Serial.print("Falha, código: ");
     Serial.println(state);
-    while (true)
-      ;
+    while (true);
   }
 }
 
@@ -103,12 +113,7 @@ void loop()
 
     // Tenta ler os dados recebidos
     String receivedData;
-    // String receivedDataPH;
-    // String receivedDataTDS;
-
     int state = Lora.readData(receivedData);
-    // int statePH = Lora.readData(receivedDataPH);
-    // int stateTDS = Lora.readData(receivedDataTDS);
 
     if (state == RADIOLIB_ERR_NONE)
     {
@@ -116,47 +121,87 @@ void loop()
 
       Serial.println("::: Dados Recebidos :::");
       Serial.println(receivedData);
-      // Serial.println(receivedDataPH);
-      // Serial.println(receivedDataTDS);
 
-      // Mostra qualidade do sinal
-      int16_t rssi = Lora.getRSSI();
-      float snr = Lora.getSNR();
-      Serial.print("RSSI: ");
-      Serial.print(rssi);
-      Serial.print(" dBm | SNR: ");
-      Serial.print(snr);
-      Serial.println(" dB");
+      // Quebra em partes usando vírgula como separador
+      int firstComma = receivedData.indexOf(',');
+      int secondComma = receivedData.indexOf(',', firstComma + 1);
 
-      // Processa o conteúdo da mensagem
+      String tempStr = receivedData.substring(0, firstComma);
+      String phStr = receivedData.substring(firstComma + 1, secondComma);
+      String tdsStr = receivedData.substring(secondComma + 1);
+
+      float temperatureValue = tempStr.toFloat();
+      float phValue = phStr.toFloat();
+      float tdsValue = tdsStr.toFloat();
+      Serial.println("");
+      Serial.println("Dados: ");
+      Serial.println("Temperatura: " + String(temperatureValue));
+      Serial.println("pH: " + String(phValue));
+      Serial.println("TDS: " + String(tdsValue));
+      Serial.println("");
+
+      // Monta JSON
+      String jsonData = "{";
+      jsonData += "\"temperature\":" + String(temperatureValue, 2) + ",";
+      jsonData += "\"ph\":" + String(phValue, 2) + ",";
+      jsonData += "\"tds\":" + String(tdsValue, 2);
+      jsonData += "}";
+
+      // Envia para API
+      if (WiFi.status() == WL_CONNECTED)
+      {
+        HTTPClient http;
+
+        http.begin(serverUrl);                              // Endpoint da API
+        http.addHeader("Content-Type", "application/json"); // Define header
+
+        int httpResponseCode = http.POST(jsonData); // Envia POST com JSON
+
+        if (httpResponseCode > 0)
+        {
+          Serial.print("Resposta da API: ");
+          Serial.println(httpResponseCode);
+          Serial.println(http.getString()); // Corpo da resposta
+        }
+        else
+        {
+          Serial.print("Erro ao enviar POST. Código: ");
+          Serial.println(httpResponseCode);
+        }
+
+        http.end(); // Fecha conexão
+      }
+      else
+      {
+        Serial.println("WiFi desconectado, tentando reconectar...");
+        WiFi.begin(ssid, password);
+      }
+
+      delay(5000); // Envia a cada 5 segundos
     }
-    else
-    {
-      Serial.println("Erro ao receber dados!");
-    }
 
-    // Reinicia recepção
-    Lora.startReceive();
-    enableInterrupt = true;
-  }
-}
+    // Mostra qualidade do sinal
+    Serial.println("Informações Trasnmissão");
+    int16_t rssi = Lora.getRSSI();
+    float snr = Lora.getSNR();
+    Serial.print("RSSI: ");
+    Serial.print(rssi);
+    Serial.print(" dBm | SNR: ");
+    Serial.print(snr);
+    Serial.println(" dB");
 
-// Função para tratar os dados recebidos
-void processReceivedData(const String &data, int rssi, float snr)
-{
-  int tempIndex = data.indexOf("Temperatura");
-
-  if (tempIndex != -1)
-  {
-    // Encontra o valor após os dois pontos
-    int tempValueStart = data.indexOf(":", tempIndex) + 1;
-    String temperatura = data.substring(tempValueStart);
-    temperatura.trim(); // Remove espaços extras
-
-    Serial.println("Temperatura interpretada: " + temperatura + " °C");
+    // Processa o conteúdo da mensagem
   }
   else
   {
-    Serial.println("Formato inesperado dos dados recebidos.");
+    Serial.println("Erro ao receber dados!");
   }
+
+  // Reinicia recepção
+  Lora.startReceive();
+  enableInterrupt = true;
+}
+
+void dadosFormatados()
+{
 }

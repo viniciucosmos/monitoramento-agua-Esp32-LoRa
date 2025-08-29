@@ -161,19 +161,18 @@ void loop()
   //  tdsValue = 20;
 
   // Monta mensagem como string
-  String dataTemperature = "Temperatura: " + String(temperature) + " C";
-  String dataPH = "pH: " + String(phValue);
-  String dataTDS = "TDS: " + String(tdsValue) + " ppm";
+  String dados = String(temperature) + "," + String(phValue) + "," + String(tdsValue);
 
   Serial.println("TENSAO de saida: ");
   Serial.println(voltage);
 
   Serial.println("verdadera tensao");
   Serial.println(averageVoltage);
-  Serial.println("\nEnviando via LoRa: " + dataTemperature + " | " + dataPH + " | " + dataTDS);
+  Serial.println("\nEnviando via LoRa: " + dados);
 
-  // Transmite os dados (modo bloqueante)
-  int state = Lora.startTransmit(dataTemperature + " | " + dataPH + " | " + dataTDS);
+  //Transmite os dados (modo bloqueante)
+  int state = Lora.startTransmit(dados);
+
 
   if (state == RADIOLIB_ERR_NONE)
   {
