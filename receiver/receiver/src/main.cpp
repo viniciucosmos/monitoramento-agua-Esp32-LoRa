@@ -3,13 +3,14 @@
 #include <WiFi.h>
 #include <WiFiClient.h>
 #include <HTTPClient.h>
+#include "heltec.h"
 
 //-------- Configurações de Wi-fi -----------
-const char *ssid = "x";           // Nome
-const char *password = "x"; // Senha
+const char *ssid = "";           // Nome
+const char *password = ""; // Senha
 
-// URL da API
-const char *serverUrl = "url";
+String apiKey = "";
+const char *server = "https://api.thingspeak.com/update";
 
 // Definição dos pinos SPI e LoRa
 #define LORA_CLK SCK   // Pino de clock SPI
@@ -99,8 +100,18 @@ void setup()
   {
     Serial.print("Falha, código: ");
     Serial.println(state);
-    while (true);
+    while (true)
+      ;
   }
+  // Ativa Display, LoRa e Serial
+  Heltec.begin(true /*Display ON*/, false /*LoRa ON*/, true /*Serial ON*/);
+
+  // Mostra mensagem inicial
+  Heltec.display->clear();
+  Heltec.display->setTextAlignment(TEXT_ALIGN_CENTER);
+  Heltec.display->setFont(ArialMT_Plain_16);
+  Heltec.display->drawString(64, 20, "LoRa Ativo");
+  Heltec.display->display();
 }
 
 void loop()
@@ -147,38 +158,62 @@ void loop()
       jsonData += "\"tds\":" + String(tdsValue, 2);
       jsonData += "}";
 
-      // Envia para API
       if (WiFi.status() == WL_CONNECTED)
       {
         HTTPClient http;
+        String url = String(server) + "?api_key=" + apiKey +
+                     "&field1=" + String(temperatureValue) +
+                     "&field2=" + String(phValue) +
+                     "&field3=" + String(tdsValue);
 
-        http.begin(serverUrl);                              // Endpoint da API
-        http.addHeader("Content-Type", "application/json"); // Define header
+        http.begin(url);
+        int httpCode = http.GET();
 
-        int httpResponseCode = http.POST(jsonData); // Envia POST com JSON
-
-        if (httpResponseCode > 0)
+        if (httpCode > 0)
         {
-          Serial.print("Resposta da API: ");
-          Serial.println(httpResponseCode);
-          Serial.println(http.getString()); // Corpo da resposta
+          Serial.println("Dados enviados! Código: " + String(httpCode));
         }
         else
         {
-          Serial.print("Erro ao enviar POST. Código: ");
-          Serial.println(httpResponseCode);
+          Serial.println("Erro ao enviar.");
         }
-
-        http.end(); // Fecha conexão
+        http.end();
       }
-      else
-      {
-        Serial.println("WiFi desconectado, tentando reconectar...");
-        WiFi.begin(ssid, password);
-      }
-
-      delay(5000); // Envia a cada 5 segundos
+      delay(20000); // mínimo 15s entre uploads
     }
+
+    // Envia para API
+    //   if (WiFi.status() == WL_CONNECTED)
+    //   {
+    //     HTTPClient http;
+
+    //     http.begin(serverUrl);                              // Endpoint da API
+    //     http.addHeader("Content-Type", "application/json"); // Define header
+
+    //     int httpResponseCode = http.POST(jsonData); // Envia POST com JSON
+
+    //     if (httpResponseCode > 0)
+    //     {
+    //       Serial.print("Resposta da API: ");
+    //       Serial.println(httpResponseCode);
+    //       Serial.println(http.getString()); // Corpo da resposta
+    //     }
+    //     else
+    //     {
+    //       Serial.print("Erro ao enviar POST. Código: ");
+    //       Serial.println(httpResponseCode);
+    //     }
+
+    //     http.end(); // Fecha conexão
+    //   }
+    //   else
+    //   {
+    //     Serial.println("WiFi desconectado, tentando reconectar...");
+    //     WiFi.begin(ssid, password);
+    //   }
+
+    //   delay(5000); // Envia a cada 5 segundos
+    // }
 
     // Mostra qualidade do sinal
     Serial.println("Informações Trasnmissão");
@@ -195,13 +230,25 @@ void loop()
   else
   {
     Serial.println("Erro ao receber dados!");
+    delay(5000); // 5 segundos
   }
 
   // Reinicia recepção
   Lora.startReceive();
   enableInterrupt = true;
-}
 
-void dadosFormatados()
-{
+  // Aqui você pode manter o display fixo ou fazer piscar para dar destaque
+  static bool on = true;
+  Heltec.display->clear();
+  Heltec.display->setTextAlignment(TEXT_ALIGN_CENTER);
+  Heltec.display->setFont(ArialMT_Plain_16);
+
+  if (on)
+  {
+    Heltec.display->drawString(64, 20, "/\\_/\\\n( o.o )\n > ^ <");
+  }
+
+  Heltec.display->display();
+  on = !on;
+  delay(1000); // Pisca a cada 1 segundo
 }
