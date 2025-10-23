@@ -1,4 +1,5 @@
 #include <RadioLib.h>
+#include "heltec.h"
 
 //:::::: LORA - INICIO :::::://
 
@@ -102,6 +103,16 @@ void setup()
   pinMode(pinSensorPh, INPUT);
 
   //:::::: pH - FIM :::::://
+
+  // Ativa Display, LoRa e Serial
+  Heltec.begin(true /*Display ON*/, false /*LoRa ON*/, true /*Serial ON*/);
+
+  // Mostra mensagem inicial
+  Heltec.display->clear();
+  Heltec.display->setTextAlignment(TEXT_ALIGN_CENTER);
+  Heltec.display->setFont(ArialMT_Plain_16);
+  Heltec.display->drawString(64, 20, "LoRa Ativo");
+  Heltec.display->display();
 }
 
 void loop()
@@ -188,6 +199,21 @@ void loop()
   delay(2000);
 
   //:::::: LORA - FIM :::::://
+
+   // Aqui você pode manter o display fixo ou fazer piscar para dar destaque
+  static bool on = true;
+  Heltec.display->clear();
+  Heltec.display->setTextAlignment(TEXT_ALIGN_CENTER);
+  Heltec.display->setFont(ArialMT_Plain_16);
+
+  if (on)
+  {
+    Heltec.display->drawString(64, 20, "/\\_/\\\n( o.o )\n > ^ <");
+  }
+
+  Heltec.display->display();
+  on = !on;
+  delay(1000); // Pisca a cada 1 segundo
 }
 
 //::::::TDS e TEMP - INICIO :::::://

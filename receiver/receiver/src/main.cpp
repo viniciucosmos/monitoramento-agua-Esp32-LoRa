@@ -6,11 +6,11 @@
 #include "heltec.h"
 
 //-------- Configurações de Wi-fi -----------
-const char *ssid = "";           // Nome
-const char *password = ""; // Senha
+const char *ssid = ".exe";           
+const char *password = "sextasexta"; 
 
-String apiKey = "";
-const char *server = "https://api.thingspeak.com/update";
+// Configurações da API Django 
+const char *serverUrl = "https://monitoramento-agua-django-production.up.railway.app/monitoramento/leituras/nova/";
 
 // Definição dos pinos SPI e LoRa
 #define LORA_CLK SCK   // Pino de clock SPI
@@ -116,20 +116,17 @@ void setup()
 
 void loop()
 {
-  // Se um pacote foi recebido
   if (transmitFlag)
   {
     transmitFlag = false;
-    enableInterrupt = false; // Evita conflito durante leitura
+    enableInterrupt = false;
 
-    // Tenta ler os dados recebidos
     String receivedData;
     int state = Lora.readData(receivedData);
 
     if (state == RADIOLIB_ERR_NONE)
     {
       Serial.println("\n====================================================");
-
       Serial.println("::: Dados Recebidos :::");
       Serial.println(receivedData);
 
@@ -141,114 +138,81 @@ void loop()
       String phStr = receivedData.substring(firstComma + 1, secondComma);
       String tdsStr = receivedData.substring(secondComma + 1);
 
+      // CORREÇÃO: Manter como float e usar nomes corretos
       float temperatureValue = tempStr.toFloat();
       float phValue = phStr.toFloat();
       float tdsValue = tdsStr.toFloat();
+      
       Serial.println("");
       Serial.println("Dados: ");
-      Serial.println("Temperatura: " + String(temperatureValue));
-      Serial.println("pH: " + String(phValue));
-      Serial.println("TDS: " + String(tdsValue));
+      Serial.println("Temperatura: " + String(temperatureValue, 2));
+      Serial.println("pH: " + String(phValue, 2));
+      Serial.println("TDS: " + String(tdsValue, 2));
       Serial.println("");
 
-      // Monta JSON
       String jsonData = "{";
-      jsonData += "\"temperature\":" + String(temperatureValue, 2) + ",";
+      jsonData += "\"temperatura\":" + String(temperatureValue, 2) + ","; 
       jsonData += "\"ph\":" + String(phValue, 2) + ",";
       jsonData += "\"tds\":" + String(tdsValue, 2);
       jsonData += "}";
 
+      Serial.println("JSON enviado: " + jsonData);
+
+      // Envia para API Django
       if (WiFi.status() == WL_CONNECTED)
       {
         HTTPClient http;
-        String url = String(server) + "?api_key=" + apiKey +
-                     "&field1=" + String(temperatureValue) +
-                     "&field2=" + String(phValue) +
-                     "&field3=" + String(tdsValue);
+        http.begin(serverUrl);
+        http.addHeader("Content-Type", "application/json");
 
-        http.begin(url);
-        int httpCode = http.GET();
+        int httpResponseCode = http.POST(jsonData);
 
-        if (httpCode > 0)
+        if (httpResponseCode > 0)
         {
-          Serial.println("Dados enviados! Código: " + String(httpCode));
+          Serial.print("Resposta da API Django: ");
+          Serial.println(httpResponseCode);
+          String response = http.getString();
+          Serial.println("Resposta: " + response);
         }
         else
         {
-          Serial.println("Erro ao enviar.");
+          Serial.print("Erro ao enviar POST. Código: ");
+          Serial.println(httpResponseCode);
         }
+
         http.end();
       }
-      delay(20000); // mínimo 15s entre uploads
+      else
+      {
+        Serial.println("WiFi desconectado, tentando reconectar...");
+        WiFi.begin(ssid, password);
+      }
+
+      delay(20000);
+    }
+    else
+    {
+      Serial.println("Erro ao receber dados!");
+      delay(5000);
     }
 
-    // Envia para API
-    //   if (WiFi.status() == WL_CONNECTED)
-    //   {
-    //     HTTPClient http;
+    Lora.startReceive();
+    enableInterrupt = true;
 
-    //     http.begin(serverUrl);                              // Endpoint da API
-    //     http.addHeader("Content-Type", "application/json"); // Define header
-
-    //     int httpResponseCode = http.POST(jsonData); // Envia POST com JSON
-
-    //     if (httpResponseCode > 0)
-    //     {
-    //       Serial.print("Resposta da API: ");
-    //       Serial.println(httpResponseCode);
-    //       Serial.println(http.getString()); // Corpo da resposta
-    //     }
-    //     else
-    //     {
-    //       Serial.print("Erro ao enviar POST. Código: ");
-    //       Serial.println(httpResponseCode);
-    //     }
-
-    //     http.end(); // Fecha conexão
-    //   }
-    //   else
-    //   {
-    //     Serial.println("WiFi desconectado, tentando reconectar...");
-    //     WiFi.begin(ssid, password);
-    //   }
-
-    //   delay(5000); // Envia a cada 5 segundos
-    // }
-
-    // Mostra qualidade do sinal
-    Serial.println("Informações Trasnmissão");
-    int16_t rssi = Lora.getRSSI();
-    float snr = Lora.getSNR();
-    Serial.print("RSSI: ");
-    Serial.print(rssi);
-    Serial.print(" dBm | SNR: ");
-    Serial.print(snr);
-    Serial.println(" dB");
-
-    // Processa o conteúdo da mensagem
+    // Display code...
   }
-  else
-  {
-    Serial.println("Erro ao receber dados!");
-    delay(5000); // 5 segundos
-  }
+    // Aqui você pode manter o display fixo ou fazer piscar para dar destaque
+    static bool on = true;
+    Heltec.display->clear();
+    Heltec.display->setTextAlignment(TEXT_ALIGN_CENTER);
+    Heltec.display->setFont(ArialMT_Plain_16);
 
-  // Reinicia recepção
-  Lora.startReceive();
-  enableInterrupt = true;
+    if (on)
+    {
+      Heltec.display->drawString(64, 20, "/\\_/\\\n( o.o )\n > ^ <");
+    }
 
-  // Aqui você pode manter o display fixo ou fazer piscar para dar destaque
-  static bool on = true;
-  Heltec.display->clear();
-  Heltec.display->setTextAlignment(TEXT_ALIGN_CENTER);
-  Heltec.display->setFont(ArialMT_Plain_16);
-
-  if (on)
-  {
-    Heltec.display->drawString(64, 20, "/\\_/\\\n( o.o )\n > ^ <");
-  }
-
-  Heltec.display->display();
-  on = !on;
-  delay(1000); // Pisca a cada 1 segundo
+    Heltec.display->display();
+    on = !on;
+    delay(1000); // Pisca a cada 1 segundo
 }
