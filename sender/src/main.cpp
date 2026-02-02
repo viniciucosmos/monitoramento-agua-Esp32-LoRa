@@ -2,7 +2,6 @@
 #include "heltec.h"
 
 //:::::: LORA - INICIO :::::://
-
 // Definição dos pinos SPI e LoRa -> V3 <-
 #define LORA_CLK SCK   // Pino de clock SPI
 #define LORA_MISO MISO // Pino MISO SPI
@@ -39,7 +38,7 @@ DallasTemperature sensors(&oneWire); // Passa o OneWire para a biblioteca Dallas
 int analogBuffer[SCOUNT];     // Buffer de leituras analógicas
 int analogBufferTemp[SCOUNT]; // Buffer temporário para ordenação
 int analogBufferIndex = 0, copyIndex = 0;
-float averageVoltage = 0, tdsValue = 0, temperature = 25.0;
+float averageVoltage = 0, tdsValue = 0, temperature = 25.0, ecValue = 0;
 
 int getMedianNum(int bArray[], int iFilterLen); // Assinatura da função
 
@@ -103,16 +102,6 @@ void setup()
   pinMode(pinSensorPh, INPUT);
 
   //:::::: pH - FIM :::::://
-
-  // Ativa Display, LoRa e Serial
-  Heltec.begin(true /*Display ON*/, false /*LoRa ON*/, true /*Serial ON*/);
-
-  // Mostra mensagem inicial
-  Heltec.display->clear();
-  Heltec.display->setTextAlignment(TEXT_ALIGN_CENTER);
-  Heltec.display->setFont(ArialMT_Plain_16);
-  Heltec.display->drawString(64, 20, "LoRa Ativo");
-  Heltec.display->display();
 }
 
 void loop()
@@ -150,8 +139,20 @@ void loop()
     float compensationCoefficient = 1.0 + 0.02 * (temperature - 25.0);
     float compensationVoltage = averageVoltage / compensationCoefficient;
 
-    // Conversão da tensão para valor de TDS (em ppm)
-    tdsValue = (133.42 * compensationVoltage * compensationVoltage * compensationVoltage - 255.86 * compensationVoltage * compensationVoltage + 857.39 * compensationVoltage) * 0.5;
+      //condutividade em micro simens
+    ecValue = 133.42*pow(compensationVoltage, 3)
+        - 255.86*pow(compensationVoltage, 2)
+        + 857.39*compensationVoltage; // EC bruto (µS/cm)
+
+    Serial.print("Condutividade (µS/cm): ");
+    Serial.println(ecValue);
+    Serial.println("");
+    
+    float calibrationFactor = 0.840; 
+    float ecCalibrated = ecValue * calibrationFactor;   
+    tdsValue = ecCalibrated * 0.5; 
+
+    // tdsValue = ecValue * 0.5;
   }
 
   //::::::TDS e TEMP - FIM :::::://
@@ -166,7 +167,7 @@ void loop()
 
   //::::::LORA - INICIO :::::://
 
-  // dadps de teste
+  // dados para teste
   //  temperature = 10;
   //  phValue = 7;
   //  tdsValue = 20;
@@ -174,12 +175,24 @@ void loop()
   // Monta mensagem como string
   String dados = String(temperature) + "," + String(phValue) + "," + String(tdsValue);
 
-  Serial.println("TENSAO de saida: ");
-  Serial.println(voltage);
+  // Serial.println("TENSAO de saida: ");
+  // Serial.println(voltage);
+  //  Serial.println("verdadera tensao");
+  //  Serial.println(averageVoltage);
 
-  Serial.println("verdadera tensao");
-  Serial.println(averageVoltage);
-  Serial.println("\nEnviando via LoRa: " + dados);
+  // Serial.print("Condutividade: ");
+  // Serial.println(ecValue);
+
+
+  Serial.print("TDS: ");
+  Serial.println(tdsValue);
+  Serial.print("Temperatura: ");
+  Serial.println(temperature);
+  Serial.print("pH: ");
+  Serial.println(phValue);
+
+  // Serial.println("\nTemp - pH - TDS");
+  // Serial.println("Enviando via LoRa: " + dados);
 
   //Transmite os dados (modo bloqueante)
   int state = Lora.startTransmit(dados);
@@ -195,25 +208,11 @@ void loop()
     Serial.println(state);
   }
 
-  // Espera 2 segundos antes de enviar novamente
-  delay(2000);
+  // Tempo de espera
+  delay(30000);
 
   //:::::: LORA - FIM :::::://
 
-   // Aqui você pode manter o display fixo ou fazer piscar para dar destaque
-  static bool on = true;
-  Heltec.display->clear();
-  Heltec.display->setTextAlignment(TEXT_ALIGN_CENTER);
-  Heltec.display->setFont(ArialMT_Plain_16);
-
-  if (on)
-  {
-    Heltec.display->drawString(64, 20, "/\\_/\\\n( o.o )\n > ^ <");
-  }
-
-  Heltec.display->display();
-  on = !on;
-  delay(1000); // Pisca a cada 1 segundo
 }
 
 //::::::TDS e TEMP - INICIO :::::://
