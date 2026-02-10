@@ -144,16 +144,17 @@ void loop()
         - 255.86*pow(compensationVoltage, 2)
         + 857.39*compensationVoltage; // EC bruto (µS/cm)
 
+    Serial.println("");
     Serial.print("Condutividade (µS/cm): ");
     Serial.println(ecValue);
-    Serial.println("");
     
-    float calibrationFactor = 0.840; 
+    
+    float calibrationFactor = 5.82; //ecValueCalculado
+   // float calibrationFactor = 0.840; 
     float ecCalibrated = ecValue * calibrationFactor;   
     tdsValue = ecCalibrated * 0.5; 
 
-    // tdsValue = ecValue * 0.5;
-  }
+ }
 
   //::::::TDS e TEMP - FIM :::::://
 
@@ -163,14 +164,13 @@ void loop()
   phValue = a * voltage + b;
   delay(1000);
 
+  Serial.print("(ph) Tensão: ");
+  Serial.println(voltage);
+  Serial.println("");
+
   //:::::: pH - FIM :::::://
 
   //::::::LORA - INICIO :::::://
-
-  // dados para teste
-  //  temperature = 10;
-  //  phValue = 7;
-  //  tdsValue = 20;
 
   // Monta mensagem como string
   String dados = String(temperature) + "," + String(phValue) + "," + String(tdsValue);
@@ -179,10 +179,6 @@ void loop()
   // Serial.println(voltage);
   //  Serial.println("verdadera tensao");
   //  Serial.println(averageVoltage);
-
-  // Serial.print("Condutividade: ");
-  // Serial.println(ecValue);
-
 
   Serial.print("TDS: ");
   Serial.println(tdsValue);
